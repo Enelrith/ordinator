@@ -3,7 +3,7 @@ spring:
     name: ordinator-dev
   devtools:
     restart:
-      exclude: db/migration/*
+      additional-exclude: db/migration/**
   datasource:
     url: jdbc:postgresql://localhost:5432/ordinator
     username: user
