@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: ordinator-dev
+  devtools:
+    restart:
+      exclude: db/migration/*
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ordinator
+    username: user
+    password: password
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: validate
+springdoc:
+  show-actuator: true
+  swagger-ui:
+    csrf:
+      enabled: true
+    enabled: true
+  api-docs:
+    enabled: true
+  show-login-endpoint: true
