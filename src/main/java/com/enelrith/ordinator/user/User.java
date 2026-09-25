@@ -4,11 +4,13 @@ import com.enelrith.ordinator.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.Instant;
 
 @Entity
 @Table(name = "users")
+@SQLRestriction("deleted_at is null")
 public class User extends BaseEntity {
     protected User() {}
 
