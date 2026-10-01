@@ -2,7 +2,7 @@
 
 Ordinator is a project and task management application. This repository provides the REST API for user accounts, session authentication, projects, project membership, tasks, and task assignments.
 
-The Angular client lives in the separate `ordinator-ui` project. See its [README](../ordinator-ui/README.md) for frontend setup.
+The Angular client lives in the separate `ordinator-ui` project. See its [README](https://github.com/Enelrith/ordinator-ui) for frontend setup.
 
 ## Stack
 
