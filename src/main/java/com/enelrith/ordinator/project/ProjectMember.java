@@ -1,8 +1,12 @@
 package com.enelrith.ordinator.project;
 
 import com.enelrith.ordinator.common.BaseEntity;
+import com.enelrith.ordinator.task.Task;
 import com.enelrith.ordinator.user.User;
 import jakarta.persistence.*;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "project_members")
@@ -28,6 +32,14 @@ public class ProjectMember extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "task_members",
+            joinColumns = @JoinColumn(name = "project_member_id", nullable = false),
+            inverseJoinColumns = @JoinColumn(name = "task_id", nullable = false)
+    )
+    private Set<Task> tasks = new HashSet<>();
+
     public ProjectMemberRole getRole() {
         return role;
     }
@@ -50,5 +62,9 @@ public class ProjectMember extends BaseEntity {
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    public Set<Task> getTasks() {
+        return tasks;
     }
 }

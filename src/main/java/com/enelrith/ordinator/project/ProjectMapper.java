@@ -2,6 +2,7 @@ package com.enelrith.ordinator.project;
 
 import com.enelrith.ordinator.project.dto.CreateProjectRequest;
 import com.enelrith.ordinator.project.dto.ProjectDto;
+import com.enelrith.ordinator.project.dto.ProjectInfoDto;
 import com.enelrith.ordinator.user.User;
 
 import java.util.List;
@@ -17,5 +18,9 @@ public class ProjectMapper {
         var projectMemberDtos = projectMembers.stream().map(ProjectMemberMapper::toProjectMemberDto).toList();
 
         return new ProjectDto(project.getId(), project.getName(), project.getDescription(), project.getStatus(), projectMemberDtos);
+    }
+
+    public static ProjectInfoDto toProjectInfoDto(Project project, long ongoingTaskCount) {
+        return new ProjectInfoDto(project.getId(), project.getName(), project.getStatus(), ongoingTaskCount);
     }
 }

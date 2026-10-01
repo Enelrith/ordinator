@@ -91,17 +91,22 @@ class ProjectServiceTest {
         ReflectionTestUtils.setField(invitee, "id", inviteeId);
         ReflectionTestUtils.setField(project, "id", projectId);
 
-        when(projectMemberRepository.existsByUser_IdAndProject_Id(any(), any())).thenReturn(false);
+        when(projectMemberRepository.existsByUser_IdAndProject_Id(inviteeId, projectId)).thenReturn(false);
         when(userRepository.findByEmailIgnoreCase(user.getEmail())).thenReturn(Optional.of(user));
         when(projectMemberRepository.findByUser_IdAndProject_Id(userId, projectId)).thenReturn(Optional.of(userMember));
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
-        when(userRepository.findById(inviteeId)).thenReturn(Optional.of(invitee));
+        var inviteeEmail = "INVITEE@EMAIL.COM";
+        when(userRepository.findByEmailIgnoreCase(inviteeEmail)).thenReturn(Optional.of(invitee));
 
-        var projectMemberDto = projectService.addProjectMember(request, user.getEmail(), inviteeId, projectId);
+        var projectMemberDto = projectService.addProjectMember(request, user.getEmail(), inviteeEmail, projectId);
 
         assertEquals(inviteeRole, projectMemberDto.role());
         assertEquals(invitee.getEmail(), projectMemberDto.user().email());
+        assertEquals(inviteeId, projectMemberDto.user().id());
 
+        verify(userRepository).findByEmailIgnoreCase(inviteeEmail);
+        verify(userRepository, never()).findById(any());
+        verify(projectMemberRepository).existsByUser_IdAndProject_Id(inviteeId, projectId);
         verify(projectMemberRepository).save(any(ProjectMember.class));
     }
 
@@ -121,32 +126,32 @@ class ProjectServiceTest {
         var userMember = buildTestProjectMember(user, project, userRole);
         var request = new AddProjectMemberRequest(inviteeRole);
         var userId = UUID.randomUUID();
-        var inviteeId = UUID.randomUUID();
+        var inviteeEmail = invitee.getEmail();
         var projectId = UUID.randomUUID();
         ReflectionTestUtils.setField(user, "id", userId);
 
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
-        when(userRepository.findById(any())).thenReturn(Optional.of(invitee));
+        when(userRepository.findByEmailIgnoreCase(inviteeEmail)).thenReturn(Optional.of(invitee));
         when(projectMemberRepository.existsByUser_IdAndProject_Id(any(), any())).thenReturn(false);
         when(userRepository.findByEmailIgnoreCase(user.getEmail())).thenReturn(Optional.of(user));
         when(projectMemberRepository.findByUser_IdAndProject_Id(userId, projectId)).thenReturn(Optional.of(userMember));
 
         var userEmail = user.getEmail();
-        assertThrows(NotAllowedException.class, () -> projectService.addProjectMember(request, userEmail, inviteeId, projectId));
+        assertThrows(NotAllowedException.class, () -> projectService.addProjectMember(request, userEmail, inviteeEmail, projectId));
 
         verify(projectMemberRepository, never()).save(any(ProjectMember.class));
     }
 
     @Test
     void addProjectMember_withMissingProject_throwsNotFoundException() {
-        var inviteeId = UUID.randomUUID();
+        var inviteeEmail = "invitee@email.com";
         var projectId = UUID.randomUUID();
         var request = new AddProjectMemberRequest(ProjectMemberRole.MEMBER);
 
-        when(projectMemberRepository.existsByUser_IdAndProject_Id(any(), any())).thenReturn(false);
         when(projectRepository.findById(projectId)).thenReturn(Optional.empty());
 
-        assertThrows(NotFoundException.class, () -> projectService.addProjectMember(request, "test@email.com", inviteeId, projectId), "Project not found");
+        var exception = assertThrows(NotFoundException.class, () -> projectService.addProjectMember(request, "test@email.com", inviteeEmail, projectId));
+        assertEquals("Project not found", exception.getMessage());
 
         verify(projectMemberRepository, never()).save(any(ProjectMember.class));
     }
@@ -158,27 +163,36 @@ class ProjectServiceTest {
         var request = new AddProjectMemberRequest(ProjectMemberRole.MEMBER);
         var userId = UUID.randomUUID();
         var projectId = UUID.randomUUID();
-        var inviteeId = UUID.randomUUID();
+        var inviteeEmail = "missing@email.com";
         ReflectionTestUtils.setField(user, "id", userId);
         ReflectionTestUtils.setField(project, "id", projectId);
 
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
-        when(userRepository.findById(inviteeId)).thenReturn(Optional.empty());
+        when(userRepository.findByEmailIgnoreCase(inviteeEmail)).thenReturn(Optional.empty());
 
-        assertThrows(NotFoundException.class, () -> projectService.addProjectMember(request, "test@email.com", inviteeId, projectId), "Invitee not found");
+        var exception = assertThrows(NotFoundException.class, () -> projectService.addProjectMember(request, "test@email.com", inviteeEmail, projectId));
+        assertEquals("Invitee not found", exception.getMessage());
 
         verify(projectMemberRepository, never()).save(any(ProjectMember.class));
     }
 
     @Test
     void addProjectMember_withInviteeAsExistingMember_throwsAlreadyExistsException() {
+        var user = buildTestUser();
+        var project = buildTestProject(user);
+        var invitee = buildTestInvitee();
         var request = new AddProjectMemberRequest(ProjectMemberRole.MEMBER);
         var inviteeId = UUID.randomUUID();
         var projectId = UUID.randomUUID();
+        var inviteeEmail = "INVITEE@EMAIL.COM";
+        ReflectionTestUtils.setField(invitee, "id", inviteeId);
 
-        when(projectMemberRepository.existsByUser_IdAndProject_Id(any(), any())).thenReturn(true);
+        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
+        when(userRepository.findByEmailIgnoreCase(inviteeEmail)).thenReturn(Optional.of(invitee));
+        when(projectMemberRepository.existsByUser_IdAndProject_Id(inviteeId, projectId)).thenReturn(true);
 
-        assertThrows(AlreadyExistsException.class, () -> projectService.addProjectMember(request, "test@email.com", inviteeId, projectId));
+        var userEmail = user.getEmail();
+        assertThrows(AlreadyExistsException.class, () -> projectService.addProjectMember(request, userEmail, inviteeEmail, projectId));
 
         verify(projectMemberRepository, never()).save(any(ProjectMember.class));
     }
@@ -190,17 +204,18 @@ class ProjectServiceTest {
         var invitee = buildTestInvitee();
         var request = new AddProjectMemberRequest(ProjectMemberRole.MEMBER);
         var userId = UUID.randomUUID();
-        var inviteeId = UUID.randomUUID();
+        var inviteeEmail = invitee.getEmail();
         var projectId = UUID.randomUUID();
         ReflectionTestUtils.setField(user, "id", userId);
 
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
-        when(userRepository.findById(inviteeId)).thenReturn(Optional.of(invitee));
+        when(userRepository.findByEmailIgnoreCase(inviteeEmail)).thenReturn(Optional.of(invitee));
         when(userRepository.findByEmailIgnoreCase(user.getEmail())).thenReturn(Optional.of(user));
         when(projectMemberRepository.existsByUser_IdAndProject_Id(any(), any())).thenReturn(false);
 
         var userEmail = user.getEmail();
-        assertThrows(NotFoundException.class, () -> projectService.addProjectMember(request, userEmail, inviteeId, projectId), "Project member not found");
+        var exception = assertThrows(NotFoundException.class, () -> projectService.addProjectMember(request, userEmail, inviteeEmail, projectId));
+        assertEquals("Project member not found", exception.getMessage());
 
         verify(projectMemberRepository, never()).save(any(ProjectMember.class));
     }

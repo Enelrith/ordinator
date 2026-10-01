@@ -3,10 +3,7 @@ package com.enelrith.ordinator.project;
 import com.enelrith.ordinator.common.exception.AlreadyExistsException;
 import com.enelrith.ordinator.common.exception.NotAllowedException;
 import com.enelrith.ordinator.common.exception.NotFoundException;
-import com.enelrith.ordinator.project.dto.AddProjectMemberRequest;
-import com.enelrith.ordinator.project.dto.CreateProjectRequest;
-import com.enelrith.ordinator.project.dto.ProjectDto;
-import com.enelrith.ordinator.project.dto.ProjectMemberDto;
+import com.enelrith.ordinator.project.dto.*;
 import com.enelrith.ordinator.user.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,10 +46,10 @@ public class ProjectService {
     }
 
     @Transactional
-    public ProjectMemberDto addProjectMember(AddProjectMemberRequest request, String userEmail, UUID inviteeId, UUID projectId) {
-        if (projectMemberRepository.existsByUser_IdAndProject_Id(inviteeId, projectId)) throw new AlreadyExistsException("This user is already a member");
+    public ProjectMemberDto addProjectMember(AddProjectMemberRequest request, String userEmail, String inviteeEmail, UUID projectId) {
         var project = projectRepository.findById(projectId).orElseThrow(() -> new NotFoundException("Project not found"));
-        var invitee = userRepository.findById(inviteeId).orElseThrow(() -> new NotFoundException("Invitee not found"));
+        var invitee = userRepository.findByEmailIgnoreCase(inviteeEmail).orElseThrow(() -> new NotFoundException("Invitee not found"));
+        if (projectMemberRepository.existsByUser_IdAndProject_Id(invitee.getId(), projectId)) throw new AlreadyExistsException("This user is already a member");
         var user = userRepository.findByEmailIgnoreCase(userEmail).orElseThrow(() -> new NotFoundException("User not found"));
         var projectMember = projectMemberRepository.findByUser_IdAndProject_Id(user.getId(), projectId)
                 .orElseThrow(() -> new NotFoundException("Project member not found"));
@@ -79,5 +76,16 @@ public class ProjectService {
         var projectMembers = projectMemberRepository.findAllByProject_Id(project.getId());
 
         return ProjectMapper.toProjectDto(project, projectMembers);
+    }
+
+    public List<ProjectInfoDto> getAllUserProjectInfo(String userEmail) {
+        return projectRepository.findAllByUser_EmailWithOngoingTaskCount(userEmail);
+    }
+
+    public List<ProjectMemberDto> getAllProjectMembers(UUID projectId, String userEmail) {
+        var projectMembers = projectMemberRepository
+                .findAllByProject_IdAndProject_ProjectMembers_User_Email(projectId, userEmail);
+
+        return projectMembers.stream().map(ProjectMemberMapper::toProjectMemberDto).toList();
     }
 }

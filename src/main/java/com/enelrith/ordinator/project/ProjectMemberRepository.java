@@ -12,7 +12,14 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
             " order by pm.user.firstName, pm.user.lastName, pm.id")
     List<ProjectMember> findAllByProject_Id(UUID projectId);
 
+    @Query("select pm from ProjectMember pm join fetch pm.user as u join pm.tasks as t where t.id = ?1" +
+            " order by pm.user.firstName, pm.user.lastName, pm.id")
+    List<ProjectMember> findAllByTasks_Id(UUID taskId);
+    List<ProjectMember> findAllByProject_IdAndProject_ProjectMembers_User_Email(UUID projectId, String userEmail);
+
     Optional<ProjectMember> findByUser_IdAndProject_Id(UUID userId, UUID projectId);
+    Optional<ProjectMember> findByUser_EmailAndProject_Id(String userEmail, UUID projectId);
+    Optional<ProjectMember> findByIdAndProject_Id(UUID projectMemberId, UUID projectId);
 
     boolean existsByUser_IdAndProject_Id(UUID userId, UUID projectId);
     boolean existsByUser_EmailAndProject_Id(String userEmail, UUID projectId);

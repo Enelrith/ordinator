@@ -143,7 +143,7 @@ class ProjectControllerIntegrationTest {
         void returnsCreated() throws Exception {
             var request = new AddProjectMemberRequest(ProjectMemberRole.MEMBER);
 
-            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), savedInvitee.getId()))
+            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), savedInvitee.getEmail()))
                             .with(csrf())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(request)))
@@ -158,11 +158,24 @@ class ProjectControllerIntegrationTest {
         }
 
         @Test
+        void withMixedCaseInviteeEmail_returnsCreated() throws Exception {
+            var request = new AddProjectMemberRequest(ProjectMemberRole.MEMBER);
+
+            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), "INVITEE@EMAIL.COM"))
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(jsonMapper.writeValueAsString(request)))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.user.id").value(savedInvitee.getId().toString()))
+                    .andExpect(jsonPath("$.user.email").value(savedInvitee.getEmail()));
+        }
+
+        @Test
         void withInvalidRole_returnsForbidden() throws Exception {
             var request = new AddProjectMemberRequest(ProjectMemberRole.MEMBER);
             savedProjectMember.setRole(ProjectMemberRole.MEMBER);
 
-            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), savedInvitee.getId()))
+            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), savedInvitee.getEmail()))
                             .with(csrf())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(request)))
@@ -172,14 +185,14 @@ class ProjectControllerIntegrationTest {
         @Test
         @WithAnonymousUser
         void withUnauthenticatedUser_returnsUnauthorized() throws Exception {
-            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), savedInvitee.getId()))
+            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), savedInvitee.getEmail()))
                             .with(csrf()))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test
         void withMissingCsrfToken_returnsForbidden() throws Exception {
-            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), savedInvitee.getId())))
+            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), savedInvitee.getEmail())))
                     .andExpect(status().isForbidden());
         }
 
@@ -190,7 +203,7 @@ class ProjectControllerIntegrationTest {
 
             var request = new AddProjectMemberRequest(ProjectMemberRole.MEMBER);
 
-            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), savedInvitee.getId()))
+            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), "INVITEE@EMAIL.COM"))
                             .with(csrf())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(request)))
@@ -201,7 +214,7 @@ class ProjectControllerIntegrationTest {
         void withMissingProject_returnsNotFound() throws Exception {
             var request = new AddProjectMemberRequest(ProjectMemberRole.MEMBER);
 
-            mockMvc.perform(post(buildAddProjectMemberUri(UUID.randomUUID(), savedInvitee.getId()))
+            mockMvc.perform(post(buildAddProjectMemberUri(UUID.randomUUID(), savedInvitee.getEmail()))
                             .with(csrf())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(request)))
@@ -212,7 +225,7 @@ class ProjectControllerIntegrationTest {
         void withMissingInvitee_returnsNotFound() throws Exception {
             var request = new AddProjectMemberRequest(ProjectMemberRole.MEMBER);
 
-            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), UUID.randomUUID()))
+            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), "missing@email.com"))
                             .with(csrf())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(request)))
@@ -227,7 +240,7 @@ class ProjectControllerIntegrationTest {
 
             var request = new AddProjectMemberRequest(ProjectMemberRole.MEMBER);
 
-            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), savedInvitee.getId()))
+            mockMvc.perform(post(buildAddProjectMemberUri(savedProject.getId(), savedInvitee.getEmail()))
                             .with(csrf())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(request)))
@@ -292,6 +305,39 @@ class ProjectControllerIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void getAllProjectMembers_returnsOk() throws Exception {
+        var project = buildTestProject(savedUser);
+        projectRepository.save(project);
+        var projectMember = buildTestProjectMember(savedUser, project, ProjectMemberRole.ADMIN);
+        projectMemberRepository.save(projectMember);
+
+        mockMvc.perform(get(PROJECTS_URI + "/" + project.getId() + "/project-members"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].id").value(projectMember.getId().toString()));
+    }
+
+    @Test
+    @WithMockUser(username = "another.user@email.com")
+    void getAllProjectMembers_withUserNotAMember_returnsEmptyList() throws Exception {
+        var project = buildTestProject(savedUser);
+        projectRepository.save(project);
+        var projectMember = buildTestProjectMember(savedUser, project, ProjectMemberRole.ADMIN);
+        projectMemberRepository.save(projectMember);
+
+        mockMvc.perform(get(PROJECTS_URI + "/" + project.getId() + "/project-members"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    @WithAnonymousUser
+    void getAllProjectMembers_withUserNotAuthenticated_returnsUnauthorized() throws Exception {
+        mockMvc.perform(get(PROJECTS_URI + "/" + UUID.randomUUID() + "/project-members"))
+                .andExpect(status().isUnauthorized());
+    }
+
     private User buildTestUser() {
         return new User("test@email.com", "hashedPassword", "test", "test");
     }
@@ -308,7 +354,7 @@ class ProjectControllerIntegrationTest {
         return new ProjectMember(userRole, project, user);
     }
 
-    private String buildAddProjectMemberUri(UUID projectId, UUID inviteeId) {
-        return PROJECTS_URI + "/" + projectId + "/users/" + inviteeId;
+    private String buildAddProjectMemberUri(UUID projectId, String inviteeEmail) {
+        return PROJECTS_URI + "/" + projectId + "/users/" + inviteeEmail;
     }
 }
