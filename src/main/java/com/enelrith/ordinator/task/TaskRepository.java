@@ -27,7 +27,10 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     List<Task> findAllByTaskOwner_Project_Id(UUID projectId);
 
     Optional<Task> findByIdAndTaskOwner_Project_Id(UUID taskId, UUID projectId);
+    Optional<Task> findByIdAndTaskMembers_User_Email(UUID taskId, String userEmail);
+
     boolean existsByNameAndTaskOwner_Project_Id(String name, UUID projectId);
     boolean existsByIdAndTaskOwner_User_Email(UUID id, String userEmail);
     boolean existsByIdAndTaskMembers_Id(UUID id, UUID projectMemberId);
+    boolean existsByIdAndTaskMembers_User_Email(UUID id, String userEmail);
 }

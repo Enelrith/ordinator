@@ -21,3 +21,9 @@ springdoc:
   api-docs:
     enabled: true
   show-login-endpoint: true
+localstack:
+  s3:
+    endpoint: https://s3.localhost.localstack.cloud:4566
+    accessKey: test
+    secretKey: test
+    bucketName: ordinator-attachments
