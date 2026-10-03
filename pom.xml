@@ -28,6 +28,12 @@
     </scm>
     <properties>
         <java.version>25</java.version>
+        <!-- Upgrade versions to fix vulnerable dependencies -->
+        <logback.version>1.6.5</logback.version>
+        <tomcat.version>11.0.26</tomcat.version>
+        <netty.version>4.2.18.Final</netty.version>
+        <jackson-2-bom.version>2.22.3</jackson-2-bom.version>
+        <jackson-bom.version>3.2.3</jackson-bom.version>
     </properties>
     <dependencies>
         <dependency>
