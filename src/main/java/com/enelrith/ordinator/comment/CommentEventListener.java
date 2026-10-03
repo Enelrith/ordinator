@@ -1,4 +1,4 @@
-package com.enelrith.ordinator;
+package com.enelrith.ordinator.comment;
 
 import com.enelrith.ordinator.comment.dto.AttachmentUploadAttempt;
 import com.enelrith.ordinator.s3.S3ClientService;
