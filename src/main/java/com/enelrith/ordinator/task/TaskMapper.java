@@ -20,7 +20,9 @@ public class TaskMapper {
         var taskMemberDtoSet = taskMembers.stream().map(ProjectMemberMapper::toProjectMemberDto).collect(Collectors.toSet());
 
         return new TaskDto(task.getId(), task.getUpdatedAt(), task.getName(), task.getDescription(), task.getStatus(),
-                task.getImportance(), ProjectMemberMapper.toProjectMemberDto(task.getTaskOwner()), taskMemberDtoSet
+                task.getTaskOwner().getProject().getStatus(), task.getImportance(),
+                ProjectMemberMapper.toProjectMemberDto(task.getTaskOwner()), taskMemberDtoSet,
+                task.getTaskOwner().getProject().getUser().getId()
         );
     }
 
