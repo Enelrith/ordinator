@@ -1,8 +1,18 @@
 # Ordinator Backend
 
-Ordinator is a project and task management application. This repository provides the REST API for user accounts, session authentication, projects, project membership, tasks, task assignments, and task comments with optional file attachments.
+Ordinator is a project and task management application. This repository provides the REST API for user accounts, session authentication, projects, project membership, tasks, task assignments, status updates, and task comments with optional file attachments.
 
 The Angular client lives in the separate `ordinator-ui` project. See its [README](https://github.com/Enelrith/ordinator-ui) for frontend setup.
+
+## Features
+
+- Account registration and session authentication with CSRF protection
+- Project summaries with ongoing task counts and project details with members
+- Project roles (`ADMIN`, `MANAGER`, and `MEMBER`) and adding existing users by email
+- Task creation, importance levels, ownership, and member assignment
+- Project and task status updates with permission checks and status safeguards
+- Paginated task comments with one optional S3 attachment per comment
+- Attachment downloads through the authenticated API and cleanup on transaction rollback
 
 ## Stack
 
@@ -80,7 +90,7 @@ The development database settings in `application-dev.yaml` match `compose.yaml`
 
 The database persists in the `postgres_data` Docker volume. Stop the services with `docker compose down`; the volumes are retained.
 
-LocalStack exposes S3 on port `4566`. Its current Compose configuration sets `PERSISTENCE=1`, so buckets and uploaded objects are retained after a restart in `localstack_data`
+LocalStack exposes S3 on port `4566`. Its Compose configuration sets `PERSISTENCE=1` and stores its state in the `localstack_data` Docker volume. Use `docker compose down` to stop the services while retaining their volumes. Removing the volumes, including with `docker compose down -v`, removes the stored database and LocalStack data.
 
 ## Configuration
 
@@ -121,25 +131,27 @@ Registration, login, and CSRF token retrieval are available without an authentic
 
 ## API overview
 
-| Method | Path                                                    | Purpose                                               |
-| ------ | ------------------------------------------------------- | ----------------------------------------------------- |
-| `POST` | `/api/users`                                            | Create a user account                                 |
-| `GET`  | `/api/auth/csrf`                                        | Obtain a CSRF token                                   |
-| `POST` | `/api/auth/login`                                       | Log in                                                |
-| `POST` | `/api/auth/logout`                                      | Log out                                               |
-| `GET`  | `/api/auth/me`                                          | Get the current user                                  |
-| `POST` | `/api/projects`                                         | Create a project                                      |
-| `GET`  | `/api/projects/info`                                    | List summaries of the current user's projects         |
-| `GET`  | `/api/projects/{projectId}`                             | Get a project and its members                         |
-| `POST` | `/api/projects/{projectId}/users/{inviteeEmail}`        | Add an existing user by email                         |
-| `GET`  | `/api/projects/{projectId}/project-members`             | List members of a project the current user belongs to |
-| `POST` | `/api/tasks/projects/{projectId}`                       | Create a task in a project                            |
-| `GET`  | `/api/tasks/projects/{projectId}/info`                  | List a project's task summaries                       |
-| `GET`  | `/api/tasks/{taskId}/projects/{projectId}`              | Get task details and members                          |
-| `POST` | `/api/tasks/{taskId}/project-members/{projectMemberId}` | Assign a project member to a task                     |
-| `POST` | `/api/comments/tasks/{taskId}`                          | Create a comment with an optional attachment          |
-| `GET`  | `/api/comments/projects/{projectId}/tasks/{taskId}`     | List a task's comments with pagination                |
-| `GET`  | `/api/comments/{commentId}/attachment`                  | Download a comment's attachment                       |
+| Method  | Path                                                    | Purpose                                               |
+| ------- | ------------------------------------------------------- | ----------------------------------------------------- |
+| `POST`  | `/api/users`                                            | Create a user account                                 |
+| `GET`   | `/api/auth/csrf`                                        | Obtain a CSRF token                                   |
+| `POST`  | `/api/auth/login`                                       | Log in                                                |
+| `POST`  | `/api/auth/logout`                                      | Log out                                               |
+| `GET`   | `/api/auth/me`                                          | Get the current user                                  |
+| `POST`  | `/api/projects`                                         | Create a project                                      |
+| `GET`   | `/api/projects/info`                                    | List summaries of the current user's projects         |
+| `GET`   | `/api/projects/{projectId}`                             | Get a project and its members                         |
+| `PATCH` | `/api/projects/{projectId}/status`                      | Update a project's status                             |
+| `POST`  | `/api/projects/{projectId}/users/{inviteeEmail}`        | Add an existing user by email                         |
+| `GET`   | `/api/projects/{projectId}/project-members`             | List members of a project the current user belongs to |
+| `POST`  | `/api/tasks/projects/{projectId}`                       | Create a task in a project                            |
+| `GET`   | `/api/tasks/projects/{projectId}/info`                  | List a project's task summaries                       |
+| `GET`   | `/api/tasks/{taskId}/projects/{projectId}`              | Get task details and members                          |
+| `PATCH` | `/api/tasks/{taskId}/status`                            | Update a task's status                                |
+| `POST`  | `/api/tasks/{taskId}/project-members/{projectMemberId}` | Assign a project member to a task                     |
+| `POST`  | `/api/comments/tasks/{taskId}`                          | Create a comment with an optional attachment          |
+| `GET`   | `/api/comments/projects/{projectId}/tasks/{taskId}`     | List a task's comments with pagination                |
+| `GET`   | `/api/comments/{commentId}/attachment`                  | Download a comment's attachment                       |
 
 Project creators become `ADMIN` members. Admins can add managers and members; managers can add members. Members cannot add project members or create tasks. Admins and managers can create tasks, and the task creator becomes its owner and initial task member. Only the task owner can assign additional members from the same project.
 
@@ -147,9 +159,37 @@ Adding a project member resolves an existing account by email, case-insensitivel
 
 API documentation is available at [Swagger UI](http://localhost:8080/swagger-ui/index.html) and [OpenAPI JSON](http://localhost:8080/v3/api-docs). The current security configuration requires an authenticated session to access these endpoints.
 
+## Status updates and safeguards
+
+New projects and tasks start as `ONGOING`. Status updates use a JSON body such as:
+
+```json
+{
+  "status": "COMPLETED"
+}
+```
+
+Both status endpoints return `204 No Content` on success and require an authenticated session and a valid CSRF token.
+
+| Resource | Allowed statuses                               | Who can update the status             |
+| -------- | ---------------------------------------------- | ------------------------------------- |
+| Project  | `ONGOING`, `COMPLETED`                         | The project creator, who is its admin |
+| Task     | `ONGOING`, `COMPLETED`, `ON_HOLD`, `CANCELLED` | The task owner or project creator     |
+
+The API enforces these rules:
+
+- Adding project members and creating tasks require an `ONGOING` project.
+- Assigning task members and creating comments require both the project and task to be `ONGOING`.
+- Updating a task's status requires its project to be `ONGOING`, regardless of the task's current status.
+- A project creator can reopen a completed project by setting it to `ONGOING`. This preserves the statuses of its existing tasks.
+- An authorized user can reopen a task by setting it to `ONGOING` while its project is ongoing.
+- Existing project details, task details, comments, and authorized attachment downloads remain accessible after status changes.
+
+Status safeguards return `403 Forbidden` when an action is blocked. Status update lookups return `404 Not Found` when the resource is missing or the user is not authorized to change its status. Request validation errors return `400 Bad Request`.
+
 ## Comments and attachments
 
-Project members can read task comments. Creating comments and downloading attachments require membership in the task. Requests without the required membership return `404`.
+Project members can read task comments. Creating comments and downloading attachments require membership in the task. Requests without the required membership return `404`. Posting additionally requires both the task and project to be `ONGOING`. Downloading existing attachments does not.
 
 Create comments using `multipart/form-data`, including when there is no attachment:
 
