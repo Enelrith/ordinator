@@ -4,11 +4,14 @@ import com.enelrith.ordinator.comment.dto.AttachmentUploadAttempt;
 import com.enelrith.ordinator.comment.dto.CommentAttachmentInfo;
 import com.enelrith.ordinator.comment.dto.CommentDto;
 import com.enelrith.ordinator.comment.dto.CreateCommentRequest;
+import com.enelrith.ordinator.common.exception.NotAllowedException;
 import com.enelrith.ordinator.common.exception.NotFoundException;
 import com.enelrith.ordinator.common.exception.NotValidException;
 import com.enelrith.ordinator.project.ProjectMemberRepository;
+import com.enelrith.ordinator.project.ProjectStatus;
 import com.enelrith.ordinator.s3.S3ClientService;
 import com.enelrith.ordinator.task.TaskRepository;
+import com.enelrith.ordinator.task.TaskStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -48,6 +51,9 @@ public class CommentService {
                 .orElseThrow(() -> new NotFoundException("Task not found"));
         var projectMember = projectMemberRepository.findByUser_EmailAndProject_Id(userEmail, task.getTaskOwner().getProject().getId())
                 .orElseThrow(() -> new NotFoundException("Project member not found"));
+        if (task.getStatus() != TaskStatus.ONGOING || projectMember.getProject().getStatus() != ProjectStatus.ONGOING) {
+            throw new NotAllowedException("This task cannot be modified");
+        }
 
         Comment comment;
         if (attachmentFile != null && !attachmentFile.isEmpty()) {

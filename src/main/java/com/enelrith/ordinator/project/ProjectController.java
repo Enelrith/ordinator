@@ -99,4 +99,13 @@ public class ProjectController {
 
         return ResponseEntity.ok(projectMemberDtoList);
     }
+
+    @PatchMapping("/{projectId}/status")
+    public ResponseEntity<Void> updateProjectStatus(@Valid @RequestBody UpdateProjectStatusRequest request,
+                                                    @PathVariable UUID projectId,
+                                                    Authentication authentication) {
+        projectService.updateProjectStatus(request, projectId, authentication.getName());
+
+        return ResponseEntity.noContent().build();
+    }
 }

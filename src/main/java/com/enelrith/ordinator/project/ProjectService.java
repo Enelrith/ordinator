@@ -17,7 +17,8 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class ProjectService {
     private static final Logger log = LoggerFactory.getLogger(ProjectService.class);
-
+    private static final String PROJECT_NOT_FOUND = "Project not found";
+    
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final ProjectMemberRepository projectMemberRepository;
@@ -47,7 +48,10 @@ public class ProjectService {
 
     @Transactional
     public ProjectMemberDto addProjectMember(AddProjectMemberRequest request, String userEmail, String inviteeEmail, UUID projectId) {
-        var project = projectRepository.findById(projectId).orElseThrow(() -> new NotFoundException("Project not found"));
+        var project = projectRepository.findById(projectId).orElseThrow(() -> new NotFoundException(PROJECT_NOT_FOUND));
+        if (project.getStatus() != ProjectStatus.ONGOING) {
+            throw new NotAllowedException("This project cannot be modified");
+        }
         var invitee = userRepository.findByEmailIgnoreCase(inviteeEmail).orElseThrow(() -> new NotFoundException("Invitee not found"));
         if (projectMemberRepository.existsByUser_IdAndProject_Id(invitee.getId(), projectId)) throw new AlreadyExistsException("This user is already a member");
         var user = userRepository.findByEmailIgnoreCase(userEmail).orElseThrow(() -> new NotFoundException("User not found"));
@@ -58,7 +62,7 @@ public class ProjectService {
                 (projectMember.getRole() == ProjectMemberRole.MANAGER && request.role() != ProjectMemberRole.MEMBER)
                 || request.role() == ProjectMemberRole.ADMIN || projectMember.getRole() == ProjectMemberRole.MEMBER
         ) {
-            throw new NotAllowedException();
+            throw new NotAllowedException("You are not allowed to perform this action");
         }
 
         var newProjectMember = ProjectMemberMapper.toEntity(request, project, invitee);
@@ -71,8 +75,8 @@ public class ProjectService {
 
     public ProjectDto getProject(String userEmail, UUID projectId) {
         if (!projectMemberRepository.existsByUser_EmailAndProject_Id(userEmail, projectId))
-            throw new NotFoundException("Project not found");
-        var project = projectRepository.findById(projectId).orElseThrow(() -> new NotFoundException("Project not found"));
+            throw new NotFoundException(PROJECT_NOT_FOUND);
+        var project = projectRepository.findById(projectId).orElseThrow(() -> new NotFoundException(PROJECT_NOT_FOUND));
         var projectMembers = projectMemberRepository.findAllByProject_Id(project.getId());
 
         return ProjectMapper.toProjectDto(project, projectMembers);
@@ -87,5 +91,13 @@ public class ProjectService {
                 .findAllByProject_IdAndProject_ProjectMembers_User_Email(projectId, userEmail);
 
         return projectMembers.stream().map(ProjectMemberMapper::toProjectMemberDto).toList();
+    }
+
+    @Transactional
+    public void updateProjectStatus(UpdateProjectStatusRequest request, UUID projectId, String userEmail) {
+        var project = projectRepository.findByIdAndUser_Email(projectId, userEmail)
+                .orElseThrow(() -> new NotFoundException(PROJECT_NOT_FOUND));
+
+        project.setStatus(request.status());
     }
 }

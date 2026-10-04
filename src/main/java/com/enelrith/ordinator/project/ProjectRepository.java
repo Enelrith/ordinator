@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ProjectRepository extends JpaRepository<Project, UUID> {
@@ -29,6 +30,8 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
         p.updatedAt desc
     """)
     List<ProjectInfoDto> findAllByUser_EmailWithOngoingTaskCount(String email);
+
+    Optional<Project> findByIdAndUser_Email(UUID id, String userEmail);
 
     boolean existsByNameAndUser_Id(String name, UUID userId);
 }

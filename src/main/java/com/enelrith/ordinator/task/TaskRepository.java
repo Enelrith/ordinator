@@ -28,6 +28,9 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
 
     Optional<Task> findByIdAndTaskOwner_Project_Id(UUID taskId, UUID projectId);
     Optional<Task> findByIdAndTaskMembers_User_Email(UUID taskId, String userEmail);
+    @Query("select t from Task t join t.taskOwner as to join to.user as tou join to.project as p join p.user as pu" +
+            " where t.id = ?1 and (tou.email = ?2 or pu.email = ?2)")
+    Optional<Task> findByIdAndTaskOwnerOrProjectAdmin(UUID id, String userEmail);
 
     boolean existsByNameAndTaskOwner_Project_Id(String name, UUID projectId);
     boolean existsByIdAndTaskOwner_User_Email(UUID id, String userEmail);

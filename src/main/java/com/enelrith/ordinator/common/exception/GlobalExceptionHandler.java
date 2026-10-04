@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(NotAllowedException.class)
-    public ProblemDetail handleNotAllowedException() {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "You are not allowed to perform this action");
+    public ProblemDetail handleNotAllowedException(NotAllowedException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
     }
 }

@@ -3,6 +3,7 @@ package com.enelrith.ordinator.task;
 import com.enelrith.ordinator.task.dto.CreateTaskRequest;
 import com.enelrith.ordinator.task.dto.TaskDto;
 import com.enelrith.ordinator.task.dto.TaskInfoDto;
+import com.enelrith.ordinator.task.dto.UpdateTaskStatusRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -85,6 +86,15 @@ public class TaskController {
                                               @PathVariable UUID projectMemberId,
                                               Authentication authentication) {
         taskService.addTaskMember(taskId, projectMemberId, authentication.getName());
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{taskId}/status")
+    public ResponseEntity<Void> updateTaskStatus(@Valid @RequestBody UpdateTaskStatusRequest request,
+                                                 @PathVariable UUID taskId,
+                                                 Authentication authentication) {
+        taskService.updateTaskStatus(request, taskId, authentication.getName());
 
         return ResponseEntity.noContent().build();
     }
